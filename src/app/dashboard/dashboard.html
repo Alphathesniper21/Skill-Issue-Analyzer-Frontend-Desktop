@@ -1,0 +1,282 @@
+<div class="dashboard">
+
+  <!-- ── Topbar ─────────────────────────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="topbar__brand">
+      <span class="topbar__icon">⚙</span>
+      <span class="topbar__name mono">skill_issue_analyser</span>
+    </div>
+
+    <nav class="topbar__nav">
+      <button class="topbar__tab" [class.active]="tab === 'analizar'"  (click)="cambiarTab('analizar')">
+        <span class="mono">// analyze</span>
+      </button>
+      <button class="topbar__tab" [class.active]="tab === 'historial'" (click)="cambiarTab('historial')">
+        <span class="mono">// history</span>
+        <span class="chip" *ngIf="historial.length > 0">{{ historial.length }}</span>
+      </button>
+      <a *ngIf="esAdmin" routerLink="/admin" class="topbar__tab topbar__tab--admin">
+        <span class="mono">// admin</span>
+      </a>
+    </nav>
+
+    <div class="topbar__user">
+      <span class="topbar__username mono">{{ username }}</span>
+      <button class="btn btn--ghost btn--sm" (click)="logout()">logout</button>
+    </div>
+  </header>
+
+  <!-- ── Alerta global ──────────────────────────────────────────────────── -->
+  <div *ngIf="alerta" class="global-alerta" [ngClass]="'global-alerta--' + alerta.tipo">
+    <span>{{ alerta.mensaje }}</span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       TAB: ANALIZAR
+       ═══════════════════════════════════════════════════════════════════ -->
+  <main class="content" *ngIf="tab === 'analizar'">
+    <div class="analyzer-layout">
+
+      <!-- Editor panel -->
+      <section class="editor-panel card">
+        <div class="panel-header">
+          <span class="mono panel-header__title">
+            <span class="text-muted">// </span>input_source
+          </span>
+          <div class="panel-header__actions">
+            <button class="btn btn--sm"
+                    [class.btn--primary]="tipoInput === 'zip'"
+                    [class.btn--ghost]="tipoInput !== 'zip'"
+                    (click)="cambiarTipoInput('zip')">
+              📦 .zip
+            </button>
+            <button class="btn btn--sm"
+                    [class.btn--primary]="tipoInput === 'github'"
+                    [class.btn--ghost]="tipoInput !== 'github'"
+                    (click)="cambiarTipoInput('github')">
+              🐙 GitHub
+            </button>
+          </div>
+        </div>
+
+        <!-- ── Modo ZIP ─────────────────────────────────────────────────── -->
+        <ng-container *ngIf="tipoInput === 'zip'">
+          <div class="upload-zone"
+               [class.upload-zone--loaded]="archivoZip"
+               (click)="fileInput.click()"
+               (dragover)="$event.preventDefault()"
+               (drop)="onArchivoSeleccionado($event)">
+
+            <input #fileInput type="file" accept=".zip"
+                   style="display:none"
+                   (change)="onArchivoSeleccionado($event)" />
+
+            <ng-container *ngIf="!archivoZip">
+              <span class="upload-zone__icon">&#128230;</span>
+              <p class="upload-zone__title mono">drop_zip_here()</p>
+              <p class="upload-zone__sub">o haz clic para seleccionar</p>
+              <p class="upload-zone__hint">Solo archivos <strong>.zip</strong> con código Java</p>
+            </ng-container>
+
+            <ng-container *ngIf="archivoZip">
+              <span class="upload-zone__icon">&#9989;</span>
+              <p class="upload-zone__title mono">{{ nombreArchivo }}</p>
+              <p class="upload-zone__sub">
+                {{ (archivoZip.size / 1024).toFixed(1) }} KB — listo para analizar
+              </p>
+            </ng-container>
+          </div>
+
+          <div class="editor-footer">
+            <button class="btn btn--ghost btn--sm" (click)="limpiar()" [disabled]="!archivoZip">
+              clear
+            </button>
+            <button class="btn btn--primary" (click)="analizar()"
+                    [disabled]="analizando || !archivoZip">
+              <span *ngIf="!analizando">&#9654; run_analysis()</span>
+              <span *ngIf="analizando" class="pulsing">scanning...</span>
+            </button>
+          </div>
+        </ng-container>
+
+        <!-- ── Modo GitHub ──────────────────────────────────────────────── -->
+        <ng-container *ngIf="tipoInput === 'github'">
+          <div class="github-input-zone">
+            <span class="upload-zone__icon">🐙</span>
+            <p class="upload-zone__title mono">analyze_github_repo()</p>
+            <p class="upload-zone__sub">Repositorio público de GitHub con archivos <strong>.java</strong></p>
+            <input
+              class="github-url-input mono"
+              type="text"
+              placeholder="https://github.com/owner/repo"
+              [(ngModel)]="repoUrl"
+              (keydown.enter)="analizarGithub()"
+            />
+          </div>
+
+          <div class="editor-footer">
+            <button class="btn btn--ghost btn--sm" (click)="repoUrl = ''; resultado = null">
+              clear
+            </button>
+            <button class="btn btn--primary" (click)="analizarGithub()"
+                    [disabled]="analizandoGithub || !repoUrl.trim()">
+              <span *ngIf="!analizandoGithub">&#9654; run_analysis()</span>
+              <span *ngIf="analizandoGithub" class="pulsing">scanning...</span>
+            </button>
+          </div>
+        </ng-container>
+
+      </section>
+
+      <!-- Results panel -->
+      <section class="results-panel">
+
+        <!-- Empty state -->
+        <div class="empty-results card" *ngIf="!resultado && !analizando && !analizandoGithub">
+          <div class="empty-results__icon">🔍</div>
+          <p class="empty-results__title mono">awaiting_input()</p>
+          <p class="empty-results__text">Pega código Java a la izquierda y presiona <strong>run_analysis()</strong></p>
+        </div>
+
+        <!-- Scanning state -->
+        <div class="scanning card" *ngIf="analizando || analizandoGithub">
+          <div class="scanning__anim">
+            <div class="scanning__bar"></div>
+          </div>
+          <p class="mono pulsing">analyzing_code()...</p>
+          <p class="text-muted">Detecting skill issues, please wait</p>
+        </div>
+
+        <!-- Results -->
+        <div *ngIf="resultado && !analizando && !analizandoGithub" class="fade-in">
+
+          <!-- Score summary -->
+          <div class="score-card card" [ngClass]="scoreClass(resultado.puntuacion)">
+            <div class="score-card__left">
+              <p class="score-card__label mono">skill_issue_score</p>
+              <p class="score-card__num">{{ resultado.puntuacion }}<span class="score-card__max">/100</span></p>
+              <p class="score-card__msg">{{ scoreMsg(resultado.puntuacion) }}</p>
+            </div>
+            <div class="score-card__right">
+              <div class="score-circle" [ngClass]="scoreClass(resultado.puntuacion)">
+                <span>{{ resultado.totalProblemas }}</span>
+                <small>issues</small>
+              </div>
+            </div>
+          </div>
+
+          <!-- Severity breakdown -->
+          <div class="severity-row">
+            <div class="sev-chip sev-chip--critica">
+              <span class="sev-chip__count">{{ porSeveridad(resultado.malasPracticas, 'CRITICA').length }}</span>
+              <span class="sev-chip__label">Critical</span>
+            </div>
+            <div class="sev-chip sev-chip--alta">
+              <span class="sev-chip__count">{{ porSeveridad(resultado.malasPracticas, 'ALTA').length }}</span>
+              <span class="sev-chip__label">High</span>
+            </div>
+            <div class="sev-chip sev-chip--media">
+              <span class="sev-chip__count">{{ porSeveridad(resultado.malasPracticas, 'MEDIA').length }}</span>
+              <span class="sev-chip__label">Medium</span>
+            </div>
+            <div class="sev-chip sev-chip--baja">
+              <span class="sev-chip__count">{{ porSeveridad(resultado.malasPracticas, 'BAJA').length }}</span>
+              <span class="sev-chip__label">Low</span>
+            </div>
+          </div>
+
+          <!-- Issue list -->
+          <div class="issues-list">
+            <div class="issue-item card"
+                 *ngFor="let p of resultado.malasPracticas"
+                 [class.selected]="lineaSeleccionada === p.linea"
+                 (click)="lineaSeleccionada = p.linea">
+              <div class="issue-item__header">
+                <span class="badge" [ngClass]="'badge--' + p.severidad.toLowerCase()">
+                  {{ severidadLabel(p.severidad) }}
+                </span>
+                <span class="issue-item__tipo mono">{{ p.tipo }}</span>
+                <span class="issue-item__linea mono text-muted">:{{ p.linea }}</span>
+              </div>
+              <p class="issue-item__desc">{{ p.descripcion }}</p>
+              <div class="issue-item__sugerencia">
+                <span class="mono text-muted">// fix → </span>{{ p.sugerencia }}
+              </div>
+            </div>
+
+            <div class="no-issues card" *ngIf="resultado.malasPracticas.length === 0">
+              <span style="font-size:2rem">✨</span>
+              <p class="mono">no_issues_found()</p>
+              <p class="text-muted">Tu código está limpio. Buen trabajo.</p>
+            </div>
+          </div>
+
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       TAB: HISTORIAL
+       ═══════════════════════════════════════════════════════════════════ -->
+  <main class="content" *ngIf="tab === 'historial'">
+    <div class="historial-layout">
+
+      <div class="historial-header">
+        <h2 class="mono">// mis_análisis</h2>
+        <button class="btn btn--ghost btn--sm" (click)="cargarHistorial()" [disabled]="cargandoHistorial">
+          {{ cargandoHistorial ? 'loading...' : '↺ refresh' }}
+        </button>
+      </div>
+
+      <div class="pulsing mono text-muted" *ngIf="cargandoHistorial">loading_history()...</div>
+
+      <div class="empty-hist" *ngIf="!cargandoHistorial && historial.length === 0">
+        <p class="mono">// no analyses yet</p>
+        <p class="text-muted">Analiza tu primer código en la pestaña <strong>analyze</strong></p>
+      </div>
+
+      <div class="hist-grid" *ngIf="!cargandoHistorial && historial.length > 0">
+        <div class="hist-card card" *ngFor="let a of historial" (click)="verDetalle(a)">
+          <div class="hist-card__header">
+            <span class="hist-card__id mono text-muted">#{{ a.id }}</span>
+            <span class="badge" [ngClass]="scoreClass(a.puntuacion)">{{ a.puntuacion }}/100</span>
+            <button class="btn btn--danger btn--sm hist-card__del" (click)="eliminar(a, $event)">✕</button>
+          </div>
+          <pre class="hist-card__code">{{ previsualizarCodigo(a.codigoFuente) }}</pre>
+          <div class="hist-card__footer">
+            <span class="text-muted" style="font-size:.75rem">{{ formatearFecha(a.fechaAnalisis) }}</span>
+            <span class="mono" style="font-size:.75rem; color:var(--danger)">{{ a.totalProblemas }} issues</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detalle modal -->
+      <div class="modal-overlay" *ngIf="analisisDetalle" (click)="cerrarDetalle()">
+        <div class="modal card" (click)="$event.stopPropagation()">
+          <div class="modal__header">
+            <span class="mono">// análisis_#{{ analisisDetalle.id }}</span>
+            <button class="btn btn--ghost btn--sm" (click)="cerrarDetalle()">✕ cerrar</button>
+          </div>
+          <div class="modal__body">
+            <div class="issue-item card" *ngFor="let p of analisisDetalle.malasPracticas">
+              <div class="issue-item__header">
+                <span class="badge" [ngClass]="'badge--' + p.severidad.toLowerCase()">
+                  {{ severidadLabel(p.severidad) }}
+                </span>
+                <span class="issue-item__tipo mono">{{ p.tipo }}</span>
+                <span class="mono text-muted">:{{ p.linea }}</span>
+              </div>
+              <p class="issue-item__desc">{{ p.descripcion }}</p>
+              <div class="issue-item__sugerencia">
+                <span class="mono text-muted">// fix → </span>{{ p.sugerencia }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</div>

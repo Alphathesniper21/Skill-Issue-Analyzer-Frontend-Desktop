@@ -1,0 +1,311 @@
+<div class="admin-page">
+
+  <!-- ── Sidebar ────────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar__brand">
+      <span class="sidebar__icon">⚙</span>
+      <div>
+        <p class="sidebar__app mono">skill_issue_analyser</p>
+        <p class="sidebar__role">ADMINISTRADOR</p>
+      </div>
+    </div>
+
+    <nav class="sidebar__nav">
+      <button class="nav-item" [class.active]="tab === 'overview'"    (click)="cambiarTab('overview')">
+        <span class="nav-item__icon">▤</span>
+        <span>Overview</span>
+      </button>
+      <button class="nav-item" [class.active]="tab === 'solicitudes'" (click)="cambiarTab('solicitudes')">
+        <span class="nav-item__icon">🔐</span>
+        <span>Solicitudes</span>
+        <span class="nav-badge" *ngIf="solicitudes.length > 0">{{ solicitudes.length }}</span>
+      </button>
+      <button class="nav-item" [class.active]="tab === 'usuarios'"    (click)="cambiarTab('usuarios')">
+        <span class="nav-item__icon">◈</span>
+        <span>Usuarios</span>
+      </button>
+      <button class="nav-item" [class.active]="tab === 'analisis'"    (click)="cambiarTab('analisis')">
+        <span class="nav-item__icon">◎</span>
+        <span>Análisis</span>
+      </button>
+    </nav>
+
+    <div class="sidebar__footer">
+      <span class="mono sidebar__username">{{ username }}</span>
+      <button class="btn btn--ghost btn--sm" (click)="logout()">logout</button>
+    </div>
+  </aside>
+
+  <!-- ── Main ───────────────────────────────────────────────────────────── -->
+  <div class="admin-main">
+
+    <!-- Alerta global -->
+    <div *ngIf="alerta" class="global-alerta" [ngClass]="'global-alerta--' + alerta.tipo">
+      {{ alerta.mensaje }}
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         OVERVIEW
+         ═══════════════════════════════════════════════════════════════════ -->
+    <section *ngIf="tab === 'overview'" class="section fade-in">
+      <h2 class="section__title mono">// system_overview()</h2>
+
+      <div class="stats-grid" *ngIf="estadisticas">
+        <div class="stat-card card">
+          <span class="stat-card__icon">◈</span>
+          <span class="stat-card__num">{{ estadisticas.totalUsuarios }}</span>
+          <span class="stat-card__label">Usuarios registrados</span>
+        </div>
+        <div class="stat-card card">
+          <span class="stat-card__icon">◎</span>
+          <span class="stat-card__num">{{ estadisticas.totalAnalisis }}</span>
+          <span class="stat-card__label">Análisis realizados</span>
+        </div>
+        <div class="stat-card card stat-card--warning" [class.stat-card--pulse]="estadisticas.solicitudesPendientes > 0">
+          <span class="stat-card__icon">🔐</span>
+          <span class="stat-card__num">{{ estadisticas.solicitudesPendientes }}</span>
+          <span class="stat-card__label">Solicitudes pendientes</span>
+        </div>
+        <div class="stat-card card">
+          <span class="stat-card__icon">⚠</span>
+          <span class="stat-card__num">{{ estadisticas.promedioProblemas | number:'1.1-1' }}</span>
+          <span class="stat-card__label">Issues por análisis (prom.)</span>
+        </div>
+      </div>
+
+      <div class="pulsing mono text-muted" *ngIf="cargandoStats">loading_stats()...</div>
+
+      <!-- Banner de solicitudes pendientes -->
+      <div class="pending-banner" *ngIf="solicitudes.length > 0" (click)="cambiarTab('solicitudes')">
+        <span class="pending-banner__icon">🔐</span>
+        <div>
+          <p class="pending-banner__title">
+            {{ solicitudes.length }} solicitud{{ solicitudes.length > 1 ? 'es' : '' }} de administrador pendiente{{ solicitudes.length > 1 ? 's' : '' }}
+          </p>
+          <p class="pending-banner__sub">Haz clic para revisar y aprobar o rechazar las solicitudes.</p>
+        </div>
+        <span class="pending-banner__arrow">→</span>
+      </div>
+
+      <!-- Quick stats table: últimos análisis -->
+      <div class="card" *ngIf="analisis.length > 0">
+        <p class="mono text-muted" style="font-size:.78rem; margin-bottom:.75rem;">// recent_analyses(5)</p>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#ID</th>
+              <th>Usuario</th>
+              <th>Fecha</th>
+              <th>Issues</th>
+              <th>Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let a of analisis.slice(0, 5)">
+              <td class="mono text-muted">#{{ a.id }}</td>
+              <td class="mono">{{ a.nombreUsuarioAutor }}</td>
+              <td class="text-muted">{{ formatearFecha(a.fechaAnalisis) }}</td>
+              <td>{{ a.totalProblemas }}</td>
+              <td>
+                <span class="badge" [ngClass]="scoreClass(a.puntuacion)">{{ a.puntuacion }}/100</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SOLICITUDES DE ADMIN
+         ═══════════════════════════════════════════════════════════════════ -->
+    <section *ngIf="tab === 'solicitudes'" class="section fade-in">
+      <div class="section__header">
+        <h2 class="section__title mono">// admin_requests()</h2>
+        <button class="btn btn--ghost btn--sm" (click)="cargarSolicitudes()" [disabled]="cargandoSolicitudes">
+          {{ cargandoSolicitudes ? 'loading...' : '↺ refresh' }}
+        </button>
+      </div>
+
+      <div class="pulsing mono text-muted" *ngIf="cargandoSolicitudes">loading_requests()...</div>
+
+      <!-- Empty state -->
+      <div class="empty-section" *ngIf="!cargandoSolicitudes && solicitudes.length === 0">
+        <span style="font-size:2rem">✓</span>
+        <p class="mono">no_pending_requests()</p>
+        <p class="text-muted">No hay solicitudes de administrador pendientes.</p>
+      </div>
+
+      <!-- Solicitudes cards -->
+      <div class="solicitudes-grid" *ngIf="!cargandoSolicitudes && solicitudes.length > 0">
+        <div class="solicitud-card card" *ngFor="let s of solicitudes">
+          <div class="solicitud-card__header">
+            <div class="solicitud-card__avatar">
+              {{ s.username.charAt(0).toUpperCase() }}
+            </div>
+            <div>
+              <p class="solicitud-card__name">{{ s.nombre }}</p>
+              <p class="solicitud-card__username mono text-muted">@{{ s.username }}</p>
+            </div>
+            <span class="badge badge--pendiente" style="margin-left:auto">PENDIENTE</span>
+          </div>
+
+          <div class="solicitud-card__info">
+            <div class="info-row">
+              <span class="info-row__label">Email</span>
+              <span class="info-row__val">{{ s.correo }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-row__label">Solicitud</span>
+              <span class="info-row__val">{{ formatearFecha(s.fechaCreacion) }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-row__label">Rol solicitado</span>
+              <span class="info-row__val text-accent mono">ADMINISTRADOR</span>
+            </div>
+          </div>
+
+          <div class="solicitud-card__notice">
+            <p>
+              <strong>⚠ Atención:</strong> Al aprobar esta solicitud, el usuario obtendrá acceso completo
+              al panel de administración y podrá gestionar usuarios y ver todos los análisis.
+            </p>
+          </div>
+
+          <div class="solicitud-card__actions">
+            <button class="btn btn--danger"   (click)="rechazar(s)">✕ Rechazar</button>
+            <button class="btn btn--success"  (click)="aprobar(s)">✓ Aprobar solicitud</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         USUARIOS
+         ═══════════════════════════════════════════════════════════════════ -->
+    <section *ngIf="tab === 'usuarios'" class="section fade-in">
+      <div class="section__header">
+        <h2 class="section__title mono">// user_management()</h2>
+        <button class="btn btn--ghost btn--sm" (click)="cargarUsuarios()" [disabled]="cargandoUsuarios">
+          {{ cargandoUsuarios ? 'loading...' : '↺ refresh' }}
+        </button>
+      </div>
+
+      <!-- Filtro -->
+      <div class="search-bar">
+        <span class="search-bar__icon mono">// search:</span>
+        <input type="text" [(ngModel)]="filtroUsuario" name="fuser"
+               placeholder="username, nombre o email..." />
+        <span class="search-bar__count mono text-muted">{{ usuariosFiltrados.length }} resultado{{ usuariosFiltrados.length !== 1 ? 's' : '' }}</span>
+      </div>
+
+      <div class="pulsing mono text-muted" *ngIf="cargandoUsuarios">loading_users()...</div>
+
+      <!-- Tabla de usuarios -->
+      <div class="card table-card" *ngIf="!cargandoUsuarios">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Usuario</th>
+              <th>Nombre</th>
+              <th>Email</th>
+              <th>Rol</th>
+              <th>Estado</th>
+              <th>Registro</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let u of usuariosFiltrados" [class.row--inactive]="!u.activo">
+              <td class="mono">@{{ u.username }}</td>
+              <td>{{ u.nombre }}</td>
+              <td class="text-muted" style="font-size:.8rem">{{ u.correo }}</td>
+              <td>
+                <span class="badge" [ngClass]="u.rol === 'ADMIN' ? 'badge--alta' : 'badge--baja'">
+                  {{ u.rol }}
+                </span>
+              </td>
+              <td>
+                <span class="status-dot" [class.status-dot--on]="u.activo" [class.status-dot--off]="!u.activo">
+                  {{ u.activo ? 'Activo' : 'Inactivo' }}
+                </span>
+              </td>
+              <td class="text-muted" style="font-size:.78rem">{{ formatearFecha(u.fechaCreacion) }}</td>
+              <td>
+                <div class="row-actions">
+                  <button class="btn btn--ghost btn--sm"
+                          (click)="toggleEstado(u)"
+                          [title]="u.activo ? 'Desactivar cuenta' : 'Activar cuenta'">
+                    {{ u.activo ? '⊘ Desactivar' : '⊕ Activar' }}
+                  </button>
+                  <button class="btn btn--danger btn--sm"
+                          (click)="eliminarUsuario(u)"
+                          title="Eliminar usuario permanentemente">
+                    ✕
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="usuariosFiltrados.length === 0">
+              <td colspan="7" class="text-muted" style="text-align:center; padding:2rem;">
+                No se encontraron usuarios.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         ANÁLISIS
+         ═══════════════════════════════════════════════════════════════════ -->
+    <section *ngIf="tab === 'analisis'" class="section fade-in">
+      <div class="section__header">
+        <h2 class="section__title mono">// all_analyses()</h2>
+        <button class="btn btn--ghost btn--sm" (click)="cargarAnalisis()" [disabled]="cargandoAnalisis">
+          {{ cargandoAnalisis ? 'loading...' : '↺ refresh' }}
+        </button>
+      </div>
+
+      <div class="pulsing mono text-muted" *ngIf="cargandoAnalisis">loading_analyses()...</div>
+
+      <div class="card table-card" *ngIf="!cargandoAnalisis">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#ID</th>
+              <th>Autor</th>
+              <th>Fecha</th>
+              <th>Problemas</th>
+              <th>Score</th>
+              <th>Preview</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let a of analisis">
+              <td class="mono text-muted">#{{ a.id }}</td>
+              <td class="mono">{{ a.nombreUsuarioAutor }}</td>
+              <td class="text-muted" style="font-size:.78rem">{{ formatearFecha(a.fechaAnalisis) }}</td>
+              <td>
+                <span [style.color]="a.totalProblemas > 10 ? 'var(--danger)' : 'var(--text-primary)'">
+                  {{ a.totalProblemas }}
+                </span>
+              </td>
+              <td>
+                <span class="badge" [ngClass]="scoreClass(a.puntuacion)">{{ a.puntuacion }}/100</span>
+              </td>
+              <td>
+                <span class="code-preview">{{ a.codigoFuente.slice(0, 50) }}...</span>
+              </td>
+            </tr>
+            <tr *ngIf="analisis.length === 0">
+              <td colspan="6" class="text-muted" style="text-align:center; padding:2rem;">
+                No hay análisis aún.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+</div>

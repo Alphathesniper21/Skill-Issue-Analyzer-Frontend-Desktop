@@ -1,0 +1,199 @@
+<div class="home-page">
+
+  <!-- ── Hero panel ─────────────────────────────────────────────────────── -->
+  <aside class="hero-panel">
+    <div class="hero-content">
+
+      <div class="hero-brand">
+        <span class="hero-brand__icon">&#9881;</span>
+        <div>
+          <p class="hero-brand__label">// tool</p>
+          <h1 class="hero-brand__name">skill_issue<br><span class="accent">analyser</span></h1>
+        </div>
+      </div>
+
+      <p class="hero-tagline">
+        Static analysis for Java code.<br>
+        We find the issues.<br>
+        <span class="accent">You fix them.</span>
+      </p>
+
+      <div class="hero-code">
+        <div class="hero-code__bar">
+          <span class="dot dot--red"></span>
+          <span class="dot dot--yellow"></span>
+          <span class="dot dot--green"></span>
+          <span class="hero-code__filename">MyService.java</span>
+        </div>
+        <pre class="hero-code__body">
+        <span class="c-kw">public class</span> <span class="c-cls">MyService</span> <span class="c-op">&#123;</span>
+         <span class="badge-inline badge-inline--critica">&#9888; God Class</span>
+        <span class="c-kw">private static int</span> x <span class="c-op">=</span> <span class="c-num">42</span><span class="c-op">;</span>
+        <span class="badge-inline badge-inline--media">&#9888; Magic Number</span>
+
+        <span class="c-kw">public void</span> <span class="c-fn">doEverything</span><span class="c-op">() &#123;</span>
+       <span class="c-cm">// 847 lines later...</span>
+        <span class="badge-inline badge-inline--alta">&#9888; Long Method</span>
+        <span class="c-op">&#125;</span>
+
+      <span class="c-kw">catch</span> <span class="c-op">(</span>Exception e<span class="c-op">) &#123;&#125;</span>
+          <span class="badge-inline badge-inline--alta">&#9888; Empty Catch</span>
+        <span class="c-op">&#125;</span>
+        </pre>
+        <div class="hero-code__scanner"></div>
+      </div>
+
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <span class="hero-stat__num">12+</span>
+          <span class="hero-stat__label">Patterns detected</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat__num">4</span>
+          <span class="hero-stat__label">Severity levels</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat__num">&#8734;</span>
+          <span class="hero-stat__label">Skill issues found</span>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ── Form panel ─────────────────────────────────────────────────────── -->
+  <section class="form-panel">
+
+    <!-- Alerta -->
+    <div *ngIf="alerta" class="alerta" [ngClass]="'alerta--' + alerta.tipo">
+      <span class="alerta__icon">
+        <ng-container [ngSwitch]="alerta.tipo">
+          <span *ngSwitchCase="'error'">&#10005;</span>
+          <span *ngSwitchCase="'warning'">&#9888;</span>
+          <span *ngSwitchCase="'success'">&#10003;</span>
+          <span *ngSwitchCase="'info'">&#8505;</span>
+        </ng-container>
+      </span>
+      <div class="alerta__body">
+        <span class="alerta__msg">{{ alerta.mensaje }}</span>
+        <span *ngIf="alerta.detalle" class="alerta__detail">{{ alerta.detalle }}</span>
+      </div>
+      <button class="alerta__close" (click)="cerrarAlerta()"
+              *ngIf="alerta.tipo === 'error' || alerta.tipo === 'warning'">&#10005;</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab" [class.active]="modo === 'login'"    (click)="cambiarModo('login')">
+        <span class="tab__prefix">$</span> login
+      </button>
+      <button class="tab" [class.active]="modo === 'registro'" (click)="cambiarModo('registro')">
+        <span class="tab__prefix">$</span> register
+      </button>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <form class="auth-form" *ngIf="modo === 'login'" (ngSubmit)="login()">
+      <div class="form-group">
+        <label for="lu">username</label>
+        <input id="lu" type="text" [(ngModel)]="loginUsername" name="lu"
+               placeholder="your_username" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label for="lp">password</label>
+        <div class="input-wrap">
+          <input id="lp" [type]="mostrarPassLogin ? 'text' : 'password'"
+                 [(ngModel)]="loginContrasena" name="lp"
+                 placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;"
+                 autocomplete="current-password" />
+          <button type="button" class="input-wrap__eye"
+                  (click)="mostrarPassLogin = !mostrarPassLogin">
+            {{ mostrarPassLogin ? '&#128584;' : '&#128065;' }}
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" class="submit-btn" [disabled]="cargando">
+        <span *ngIf="!cargando">run login() &#8594;</span>
+        <span *ngIf="cargando" class="pulsing">authenticating...</span>
+      </button>
+
+      <p class="form-hint">
+        &#191;No tienes cuenta?
+        <button type="button" class="link-btn" (click)="cambiarModo('registro')">Regístrate aquí</button>
+      </p>
+    </form>
+
+    <!-- REGISTRO FORM -->
+    <form class="auth-form" *ngIf="modo === 'registro'" (ngSubmit)="registro()">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="ru">username *</label>
+          <input id="ru" type="text" [(ngModel)]="regUsername" name="ru"
+                 placeholder="cool_username" />
+        </div>
+        <div class="form-group">
+          <label for="rp">password *</label>
+          <div class="input-wrap">
+            <input id="rp" [type]="mostrarPassReg ? 'text' : 'password'"
+                   [(ngModel)]="regContrasena" name="rp"
+                   placeholder="Secure1!" />
+            <button type="button" class="input-wrap__eye"
+                    (click)="mostrarPassReg = !mostrarPassReg">
+              {{ mostrarPassReg ? '&#128584;' : '&#128065;' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="rn">nombre completo *</label>
+        <input id="rn" type="text" [(ngModel)]="regNombreCompleto" name="rn"
+               placeholder="Juan Pérez" />
+      </div>
+
+      <div class="form-group">
+        <label for="re">correo electrónico *</label>
+        <input id="re" type="email" [(ngModel)]="regEmail" name="re"
+               placeholder="juan@empresa.com" />
+      </div>
+
+      <div class="form-group">
+        <label for="rr">tipo de cuenta</label>
+        <select id="rr" [(ngModel)]="regRol" name="rr">
+          <option value="USUARIO">USUARIO — Analista de código</option>
+          <option value="ADMINISTRADOR">ADMINISTRADOR — Solicitar acceso admin</option>
+        </select>
+      </div>
+
+      <!-- Aviso admin -->
+      <div class="admin-notice" *ngIf="esRegistroAdmin">
+        <span class="admin-notice__icon">&#128272;</span>
+        <div>
+          <p class="admin-notice__title">Solicitud de administrador</p>
+          <p class="admin-notice__text">
+            Tu cuenta quedará <strong>pendiente de aprobación</strong>.
+            Un administrador existente deberá revisar y aprobar tu solicitud
+            antes de que puedas ingresar.
+          </p>
+        </div>
+      </div>
+
+      <div class="pass-hint">
+        <span>contraseña: 8+ chars, 1 mayúscula, 1 número</span>
+      </div>
+
+      <button type="submit" class="submit-btn" [disabled]="cargando">
+        <span *ngIf="!cargando && !esRegistroAdmin">run register() &#8594;</span>
+        <span *ngIf="!cargando && esRegistroAdmin">send_request() &#8594;</span>
+        <span *ngIf="cargando" class="pulsing">processing...</span>
+      </button>
+
+      <p class="form-hint">
+        &#191;Ya tienes cuenta?
+        <button type="button" class="link-btn" (click)="cambiarModo('login')">Inicia sesión</button>
+      </p>
+    </form>
+
+  </section>
+</div>
